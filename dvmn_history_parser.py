@@ -24,10 +24,16 @@ RUS_MONTH_NUM = {
 
 
 def remove_spaces_series(src_string: str) -> str:
+    """
+    Возвращает строку без последовательных пробельных символов
+    """
     return re.sub(r'\s+', ' ', src_string)
 
 
 def dvmn_time_str_to_datetime(dvmn_time_str: str):
+    """
+    Преобразует строку с датой и временем определенного формата в datetime
+    """
     day_str, ru_month, year_str, _, time_str = dvmn_time_str.split()
     month = RUS_MONTH_NUM[ru_month]
     hours_str, minutes_str = time_str.split(':')
@@ -42,8 +48,12 @@ def dvmn_time_str_to_datetime(dvmn_time_str: str):
 
 def split_reviews_by_lessons(reviews: list[tuple[str, str, str, str]])\
         -> dict[str, t.Deque]:
+    """
+    Преобразует входящий список записей в словарь с ключом 'имя_модуля+имя_урока'.
+    Значение: очередь из отправил решение - получил ревью.
+    """
     reviews_by_lesson = defaultdict(deque)
-    for action, lesson, module, timestamp in reversed(reviews):
+    for _action, lesson, module, timestamp in reversed(reviews):
         module_lesson = f'{module}. {lesson}'
         reviews_by_lesson[module_lesson].appendleft(timestamp)
     return reviews_by_lesson
@@ -51,6 +61,10 @@ def split_reviews_by_lessons(reviews: list[tuple[str, str, str, str]])\
 
 def calc_first_reviews_time(reviews_by_lesson:  dict[str, t.Deque]) \
         -> list[dict[str, t.Any]]:
+    """
+    Перебирает словарь с очередями сдал_задачу/получил_ревью и создает список словарей:
+    lesson: имя_модуля+имя_урока, review_time: длительность первой проверки
+    """
     first_reviews = []
     for lesson, reviews in reviews_by_lesson.items():
         first_sent = reviews.pop()
@@ -66,12 +80,18 @@ def calc_first_reviews_time(reviews_by_lesson:  dict[str, t.Deque]) \
 
 
 def timedelta_to_hours(timedelta) -> int:
+    """
+    Вычисляет количество часов в обычном datetime.timdelta
+    """
     return timedelta.days * 24 + timedelta.seconds / 60 / 60
 
 
 def main():
-    with open('history.html', 'r') as f:
-        history_html = f.read()
+    """
+    Читает входной файл, разбирает содержимое, вычисляет статистику, выводит результат.
+    """
+    with open('history.html', 'r') as history_file:
+        history_html = history_file.read()
 
     reviews = []
     soup = BeautifulSoup(history_html, 'lxml')
