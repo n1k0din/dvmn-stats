@@ -21,7 +21,7 @@ lesson|review_time
 Знакомство с Python. Урок 6. Создаём человеков|31.28333333333333
 
 ## Установка и запуск
-0. Сохраните страницу [истории действий ученика](https://dvmn.org/user/nik726/history/) в файл `history.html`
+0. Сохраните страницу [истории действий ученика](https://dvmn.org/user/nik726/history/) в файл `history.html`.
 1. Скачайте код и перейдите в папку проекта
   ```bash
   git clone https://github.com/n1k0din/dvmn-stats.git
@@ -29,11 +29,12 @@ lesson|review_time
   ```bash
   cd dvmn-stats
   ```
-2. Установите вирт. окружение
+2. Скопируйте файл с шага 0. в `dvmn-stats`
+3. Установите вирт. окружение
 ```bash
 python -m venv venv
 ```
-3. Активируйте
+4. Активируйте
 ```bash
 venv\Scripts\activate.bat
 ```
@@ -41,11 +42,11 @@ venv\Scripts\activate.bat
  ```
  source venv/bin/activate
  ```
-4. Установите необходимые пакеты
+5. Установите необходимые пакеты
 ```bash
 pip install -r requirements.txt
 ```
-5. Запустите
+6. Запустите
 ```bash
 python dvmn_history_parser.py
 ```
