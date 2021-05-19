@@ -1,5 +1,6 @@
 import csv
 import re
+import typing as t
 from collections import defaultdict, deque
 from datetime import datetime
 from statistics import mean, median
@@ -22,24 +23,25 @@ RUS_MONTH_NUM = {
 }
 
 
-def remove_spaces_series(src_string):
+def remove_spaces_series(src_string: str) -> str:
     return re.sub(r'\s+', ' ', src_string)
 
 
-def dmnv_time_str_to_datetime(string):
-    day, ru_month, year, _, time = string.split()
+def dvmn_time_str_to_datetime(dvmn_time_str: str):
+    day_str, ru_month, year_str, _, time_str = dvmn_time_str.split()
     month = RUS_MONTH_NUM[ru_month]
-    hours, minutes = time.split(':')
+    hours_str, minutes_str = time_str.split(':')
 
-    day = int(day)
-    year = int(year)
-    hours = int(hours)
-    minutes = int(minutes)
+    day = int(day_str)
+    year = int(year_str)
+    hours = int(hours_str)
+    minutes = int(minutes_str)
 
     return datetime(year, month, day, hours, minutes)
 
 
-def split_reviews_by_lessons(reviews):
+def split_reviews_by_lessons(reviews: list[tuple[str, str, str, str]])\
+        -> dict[str, t.Deque]:
     reviews_by_lesson = defaultdict(deque)
     for action, lesson, module, timestamp in reversed(reviews):
         module_lesson = f'{module}. {lesson}'
@@ -47,7 +49,8 @@ def split_reviews_by_lessons(reviews):
     return reviews_by_lesson
 
 
-def calc_first_reviews_time(reviews_by_lesson):
+def calc_first_reviews_time(reviews_by_lesson:  dict[str, t.Deque]) \
+        -> list[dict[str, t.Any]]:
     first_reviews = []
     for lesson, reviews in reviews_by_lesson.items():
         first_sent = reviews.pop()
@@ -62,7 +65,7 @@ def calc_first_reviews_time(reviews_by_lesson):
     return first_reviews
 
 
-def timedelta_to_hours(timedelta):
+def timedelta_to_hours(timedelta) -> int:
     return timedelta.days * 24 + timedelta.seconds / 60 / 60
 
 
@@ -80,7 +83,7 @@ def main():
         action = remove_spaces_series(action)
         lesson = remove_spaces_series(lesson)
 
-        timestamp = dmnv_time_str_to_datetime(timestamp)
+        timestamp = dvmn_time_str_to_datetime(timestamp)
 
         if action.startswith('Отправил на проверку'):
             action = 'sent'
