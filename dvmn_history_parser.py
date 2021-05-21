@@ -25,14 +25,6 @@ RUS_MONTH_NUM = {
 }
 
 
-class LessonReviewTime(t.TypedDict):
-    """
-    Typing класс для словаря с двумя ключами - урок и время проверки
-    """
-    lesson: str
-    review_time: float
-
-
 def fetch_cli_parameters():
     arg_parser = argparse.ArgumentParser(description='Parse and calc dvmn.org history stats')
     arg_parser.add_argument('username', help='Username')
@@ -77,8 +69,7 @@ def split_reviews_by_lessons(reviews: list[tuple[str, str, str, str]])\
     return reviews_by_lesson
 
 
-def calc_first_reviews_time(reviews_by_lesson:  dict[str, t.Deque]) \
-        -> list[LessonReviewTime]:
+def calc_first_reviews_time(reviews_by_lesson:  dict[str, t.Deque]) -> list:
     """
     Перебирает словарь с очередями сдал_задачу/получил_ревью и создает список словарей:
     lesson: имя_модуля+имя_урока, review_time: длительность первой проверки
