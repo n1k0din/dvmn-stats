@@ -1,3 +1,4 @@
+import argparse
 import csv
 import re
 import typing as t
@@ -5,6 +6,7 @@ from collections import defaultdict, deque
 from datetime import datetime
 from statistics import mean, median
 
+import requests
 from bs4 import BeautifulSoup
 
 RUS_MONTH_NUM = {
@@ -21,6 +23,22 @@ RUS_MONTH_NUM = {
     'ноября': 11,
     'декабря': 12,
 }
+
+
+class LessonReviewTime(t.TypedDict):
+    """
+    Typing класс для словаря с двумя ключами - урок и время проверки
+    """
+    lesson: str
+    review_time: float
+
+
+def fetch_cli_parameters():
+    arg_parser = argparse.ArgumentParser(description='Parse and calc dvmn.org history stats')
+    arg_parser.add_argument('username', help='Username')
+    arg_parser.add_argument('--skip_csv', action='store_true', help='Skip downloading csv')
+
+    return arg_parser.parse_args()
 
 
 def remove_spaces_series(src_string: str) -> str:
@@ -52,7 +70,7 @@ def split_reviews_by_lessons(reviews: list[tuple[str, str, str, str]])\
     Преобразует входящий список записей в словарь с ключом 'имя_модуля+имя_урока'.
     Значение: очередь из отправил решение - получил ревью.
     """
-    reviews_by_lesson = defaultdict(deque)
+    reviews_by_lesson: dict[str, t.Deque] = defaultdict(deque)
     for _action, lesson, module, timestamp in reversed(reviews):
         module_lesson = f'{module}. {lesson}'
         reviews_by_lesson[module_lesson].appendleft(timestamp)
@@ -60,7 +78,7 @@ def split_reviews_by_lessons(reviews: list[tuple[str, str, str, str]])\
 
 
 def calc_first_reviews_time(reviews_by_lesson:  dict[str, t.Deque]) \
-        -> list[dict[str, t.Any]]:
+        -> list[LessonReviewTime]:
     """
     Перебирает словарь с очередями сдал_задачу/получил_ревью и создает список словарей:
     lesson: имя_модуля+имя_урока, review_time: длительность первой проверки
@@ -68,7 +86,10 @@ def calc_first_reviews_time(reviews_by_lesson:  dict[str, t.Deque]) \
     first_reviews = []
     for lesson, reviews in reviews_by_lesson.items():
         first_sent = reviews.pop()
-        first_recieved = reviews.pop()
+        try:
+            first_recieved = reviews.pop()
+        except IndexError:
+            continue
         first_reviews.append(
             {
                 'lesson': lesson,
@@ -79,19 +100,33 @@ def calc_first_reviews_time(reviews_by_lesson:  dict[str, t.Deque]) \
     return first_reviews
 
 
-def timedelta_to_hours(timedelta) -> int:
+def timedelta_to_hours(timedelta) -> float:
     """
     Вычисляет количество часов в обычном datetime.timdelta
     """
     return timedelta.days * 24 + timedelta.seconds / 60 / 60
 
 
+def get_dvmn_history_html(username: str):
+    url = f'https://dvmn.org/user/{username}/history/'
+    response = requests.get(url)
+    response.raise_for_status()
+
+    return response.text
+
+
 def main():
     """
-    Читает входной файл, разбирает содержимое, вычисляет статистику, выводит результат.
+    Разбирает историю, вычисляет статистику, выводит результат.
     """
-    with open('history.html', 'r') as history_file:
-        history_html = history_file.read()
+    args = fetch_cli_parameters()
+    username = args.username
+    skip_csv = args.skip_csv
+
+    try:
+        history_html = get_dvmn_history_html(username)
+    except requests.exceptions.HTTPError:
+        exit('Ошибка получения истории действий. Проверьте имя пользователя и доступ в интернет.')
 
     reviews = []
     soup = BeautifulSoup(history_html, 'lxml')
@@ -123,10 +158,11 @@ def main():
     print(f'Среднее время проверки: {mean(review_durations):.2f} ч.')
     print(f'Медианное время проверки: {median(review_durations):.2f} ч.')
 
-    with open('reviews_stats.csv', 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=['lesson', 'review_time'])
-        writer.writeheader()
-        writer.writerows(first_reviews_time)
+    if not skip_csv:
+        with open(f'{username}_stats.csv', 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=['lesson', 'review_time'])
+            writer.writeheader()
+            writer.writerows(first_reviews_time)
 
 
 if __name__ == '__main__':
