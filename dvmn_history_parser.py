@@ -152,6 +152,9 @@ def main():
 
     review_durations = [review['review_time'] for review in first_reviews_time]
 
+    if not first_reviews_time:
+        exit('Первых проверок не найдено, в истории пусто')
+
     print(f'Всего первых проверок: {len(first_reviews_time)}')
     print(f'Минимальное время проверки: {min(review_durations):.2f} ч.')
     print(f'Максимальное время проверки: {max(review_durations):.2f} ч.')
