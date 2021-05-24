@@ -1,4 +1,3 @@
-import argparse
 import re
 import typing as t
 from collections import defaultdict, deque, namedtuple
@@ -9,6 +8,7 @@ from operator import attrgetter
 from statistics import mean, median
 
 import requests
+import typer
 from bs4 import BeautifulSoup
 from dataclass_csv import DataclassWriter
 
@@ -54,14 +54,6 @@ class ModuleStats:
 
     def __str__(self):
         return f'{self.module_name}. Среднее {self.mean:.2f}, медиана {self.median:.2f}'
-
-
-def fetch_cli_parameters():
-    arg_parser = argparse.ArgumentParser(description='Parse and calc dvmn.org history stats')
-    arg_parser.add_argument('username', help='Username')
-    arg_parser.add_argument('--skip_csv', action='store_true', help='Skip downloading csv')
-
-    return arg_parser.parse_args()
 
 
 def remove_spaces_series(src_string: str) -> str:
@@ -178,13 +170,10 @@ def build_stats_for_modules(reviews_durations: list[ReviewDuration])\
     return modules_stats
 
 
-def main():
+def main(username: str, skip_csv: bool = False):
     """
     Разбирает историю, вычисляет статистику, выводит результат.
     """
-    args = fetch_cli_parameters()
-    username = args.username
-    skip_csv = args.skip_csv
 
     try:
         history_html = get_dvmn_history_html(username)
@@ -214,7 +203,6 @@ def main():
     print('Время проверки по модулям:')
     print(*modules_stats, sep='\n')
 
-
     if not skip_csv:
         with open(f'{username}_stats.csv', 'w', newline='') as csvfile:
             writer = DataclassWriter(csvfile, first_reviews_duration, ReviewDuration)
@@ -222,4 +210,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    typer.run(main)
