@@ -1,13 +1,16 @@
 import argparse
-import csv
 import re
 import typing as t
-from collections import defaultdict, deque
+from collections import defaultdict, deque, namedtuple
+from dataclasses import dataclass
 from datetime import datetime
+from itertools import groupby
+from operator import attrgetter
 from statistics import mean, median
 
 import requests
 from bs4 import BeautifulSoup
+from dataclass_csv import DataclassWriter
 
 RUS_MONTH_NUM = {
     'января': 1,
@@ -23,6 +26,34 @@ RUS_MONTH_NUM = {
     'ноября': 11,
     'декабря': 12,
 }
+
+
+ModuleLesson = namedtuple('ModuleLesson', 'module lesson')
+
+
+@dataclass
+class ReviewDuration:
+    module_lesson: ModuleLesson
+    hours: float
+
+    def __str__(self):
+        return f'{self.module_lesson.module}. {self.module_lesson.lesson} – {self.hours:.2f} ч.'
+
+
+@dataclass
+class LessonLog:
+    module_lesson: ModuleLesson
+    actions: deque
+
+
+@dataclass
+class ModuleStats:
+    module_name: str
+    mean: float
+    median: float
+
+    def __str__(self):
+        return f'{self.module_name}. Среднее {self.mean:.2f}, медиана {self.median:.2f}'
 
 
 def fetch_cli_parameters():
@@ -56,39 +87,45 @@ def dvmn_time_str_to_datetime(dvmn_time_str: str):
     return datetime(year, month, day, hours, minutes)
 
 
-def split_reviews_by_lessons(reviews: list[tuple[str, str, str, str]])\
-        -> dict[str, t.Deque]:
+def build_lessons_logs_stack(reviews: list[tuple[str, str, str, datetime]])\
+        -> dict[ModuleLesson, t.Deque]:
     """
-    Преобразует входящий список записей в словарь с ключом 'имя_модуля+имя_урока'.
-    Значение: очередь из отправил решение - получил ревью.
+    Преобразует входящий список записей в словарь с очередью из отправил решение - получил ревью.
     """
-    reviews_by_lesson: dict[str, t.Deque] = defaultdict(deque)
+    logs_for_lesson: dict[ModuleLesson, t.Deque] = defaultdict(deque)
     for _action, lesson, module, timestamp in reversed(reviews):
-        module_lesson = f'{module}. {lesson}'
-        reviews_by_lesson[module_lesson].appendleft(timestamp)
-    return reviews_by_lesson
+        module_lesson = ModuleLesson(module, lesson)
+        logs_for_lesson[module_lesson].appendleft(timestamp)
+    return logs_for_lesson
 
 
-def calc_first_reviews_time(reviews_by_lesson:  dict[str, t.Deque]) -> list:
+def convert_lessons_logs_to_dataclass_list(reviews_for_lesson: dict[ModuleLesson, t.Deque])\
+        -> list[LessonLog]:
+
+    lessons_logs = []
+    for module_lesson, actions in reviews_for_lesson.items():
+        lessons_logs.append(LessonLog(module_lesson, actions))
+
+    return lessons_logs
+
+
+def calc_first_reviews_duration(lessons_logs: list[LessonLog]) -> list[ReviewDuration]:
     """
-    Перебирает словарь с очередями сдал_задачу/получил_ревью и создает список словарей:
-    lesson: имя_модуля+имя_урока, review_time: длительность первой проверки
+    Перебирает список сдал/получил и создает список длительности первых проверок.
     """
-    first_reviews = []
-    for lesson, reviews in reviews_by_lesson.items():
-        first_sent = reviews.pop()
+    first_reviews_duration = []
+    for lesson_logs in lessons_logs:
+        first_sent = lesson_logs.actions.pop()
         try:
-            first_recieved = reviews.pop()
+            first_recieved = lesson_logs.actions.pop()
         except IndexError:
             continue
-        first_reviews.append(
-            {
-                'lesson': lesson,
-                'review_time': timedelta_to_hours(first_recieved - first_sent),
-            }
-        )
 
-    return first_reviews
+        review_hours = timedelta_to_hours(first_recieved - first_sent)
+
+        first_reviews_duration.append(ReviewDuration(lesson_logs.module_lesson, review_hours))
+
+    return first_reviews_duration
 
 
 def timedelta_to_hours(timedelta) -> float:
@@ -106,20 +143,8 @@ def get_dvmn_history_html(username: str):
     return response.text
 
 
-def main():
-    """
-    Разбирает историю, вычисляет статистику, выводит результат.
-    """
-    args = fetch_cli_parameters()
-    username = args.username
-    skip_csv = args.skip_csv
-
-    try:
-        history_html = get_dvmn_history_html(username)
-    except requests.exceptions.HTTPError:
-        exit('Ошибка получения истории действий. Проверьте имя пользователя и доступ в интернет.')
-
-    reviews = []
+def collect_actions_history(history_html: str) -> list[tuple[str, str, str, datetime]]:
+    logs = []
     soup = BeautifulSoup(history_html, 'lxml')
     rows = soup.find_all('div', class_='logtable-row mb-1 p-2')
     for row in rows:
@@ -137,26 +162,63 @@ def main():
             action = 'recieved'
 
         if action in ('sent', 'recieved'):
-            reviews.append((action, lesson, module, timestamp))
+            logs.append((action, lesson, module, timestamp))
 
-    first_reviews_time = calc_first_reviews_time(split_reviews_by_lessons(reviews))
+    return logs
 
-    review_durations = [review['review_time'] for review in first_reviews_time]
 
-    if not first_reviews_time:
+def build_stats_for_modules(reviews_durations: list[ReviewDuration])\
+        -> list[ModuleStats]:
+    modules_stats = []
+    data = sorted(reviews_durations, key=attrgetter('module_lesson.module'))
+    for module_name, module_reviews in groupby(data, key=attrgetter('module_lesson.module')):
+        durations = [module_review.hours for module_review in module_reviews]
+        modules_stats.append(ModuleStats(module_name, mean(durations), median(durations)))
+
+    return modules_stats
+
+
+def main():
+    """
+    Разбирает историю, вычисляет статистику, выводит результат.
+    """
+    args = fetch_cli_parameters()
+    username = args.username
+    skip_csv = args.skip_csv
+
+    try:
+        history_html = get_dvmn_history_html(username)
+    except requests.exceptions.HTTPError:
+        exit('Ошибка получения истории действий. Проверьте имя пользователя и доступ в интернет.')
+
+    logs = collect_actions_history(history_html)
+    lessons_logs_stack = build_lessons_logs_stack(logs)
+    lesson_logs = convert_lessons_logs_to_dataclass_list(lessons_logs_stack)
+    first_reviews_duration = calc_first_reviews_duration(lesson_logs)
+
+    review_durations = [review.hours for review in first_reviews_duration]
+
+    if not first_reviews_duration:
         exit('Первых проверок не найдено, в истории пусто')
 
-    print(f'Всего первых проверок: {len(first_reviews_time)}')
-    print(f'Минимальное время проверки: {min(review_durations):.2f} ч.')
-    print(f'Максимальное время проверки: {max(review_durations):.2f} ч.')
+    shortest_review = min(first_reviews_duration, key=attrgetter('hours'))
+    longest_review = max(first_reviews_duration, key=attrgetter('hours'))
+
+    print(f'Всего первых проверок: {len(first_reviews_duration)}')
+    print(f'Минимальное время проверки: {shortest_review}')
+    print(f'Максимальное время проверки: {longest_review}')
     print(f'Среднее время проверки: {mean(review_durations):.2f} ч.')
     print(f'Медианное время проверки: {median(review_durations):.2f} ч.')
 
+    modules_stats = build_stats_for_modules(first_reviews_duration)
+    print('Время проверки по модулям:')
+    print(*modules_stats, sep='\n')
+
+
     if not skip_csv:
         with open(f'{username}_stats.csv', 'w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=['lesson', 'review_time'])
-            writer.writeheader()
-            writer.writerows(first_reviews_time)
+            writer = DataclassWriter(csvfile, first_reviews_duration, ReviewDuration)
+            writer.write()
 
 
 if __name__ == '__main__':
