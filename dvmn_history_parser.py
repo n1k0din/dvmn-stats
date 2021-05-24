@@ -3,11 +3,13 @@ import csv
 import re
 import typing as t
 from collections import defaultdict, deque
+from dataclasses import dataclass
 from datetime import datetime
 from statistics import mean, median
 
 import requests
 from bs4 import BeautifulSoup
+from dataclass_csv import DataclassWriter
 
 RUS_MONTH_NUM = {
     'января': 1,
@@ -23,6 +25,12 @@ RUS_MONTH_NUM = {
     'ноября': 11,
     'декабря': 12,
 }
+
+
+@dataclass
+class ReviewTime:
+    lesson: str
+    hours: float
 
 
 def fetch_cli_parameters():
@@ -69,10 +77,10 @@ def split_reviews_by_lessons(reviews: list[tuple[str, str, str, str]])\
     return reviews_by_lesson
 
 
-def calc_first_reviews_time(reviews_by_lesson:  dict[str, t.Deque]) -> list:
+def calc_first_reviews_time(reviews_by_lesson:  dict[str, t.Deque]) -> list[ReviewTime]:
     """
-    Перебирает словарь с очередями сдал_задачу/получил_ревью и создает список словарей:
-    lesson: имя_модуля+имя_урока, review_time: длительность первой проверки
+    Перебирает словарь с очередями сдал_задачу/получил_ревью
+    и создает список времени первых проверок
     """
     first_reviews = []
     for lesson, reviews in reviews_by_lesson.items():
@@ -81,12 +89,10 @@ def calc_first_reviews_time(reviews_by_lesson:  dict[str, t.Deque]) -> list:
             first_recieved = reviews.pop()
         except IndexError:
             continue
-        first_reviews.append(
-            {
-                'lesson': lesson,
-                'review_time': timedelta_to_hours(first_recieved - first_sent),
-            }
-        )
+
+        review_hours = timedelta_to_hours(first_recieved - first_sent)
+
+        first_reviews.append(ReviewTime(lesson, review_hours))
 
     return first_reviews
 
@@ -106,19 +112,7 @@ def get_dvmn_history_html(username: str):
     return response.text
 
 
-def main():
-    """
-    Разбирает историю, вычисляет статистику, выводит результат.
-    """
-    args = fetch_cli_parameters()
-    username = args.username
-    skip_csv = args.skip_csv
-
-    try:
-        history_html = get_dvmn_history_html(username)
-    except requests.exceptions.HTTPError:
-        exit('Ошибка получения истории действий. Проверьте имя пользователя и доступ в интернет.')
-
+def collect_actions_history(history_html):
     reviews = []
     soup = BeautifulSoup(history_html, 'lxml')
     rows = soup.find_all('div', class_='logtable-row mb-1 p-2')
@@ -139,9 +133,27 @@ def main():
         if action in ('sent', 'recieved'):
             reviews.append((action, lesson, module, timestamp))
 
+    return reviews
+
+
+def main():
+    """
+    Разбирает историю, вычисляет статистику, выводит результат.
+    """
+    args = fetch_cli_parameters()
+    username = args.username
+    skip_csv = args.skip_csv
+
+    try:
+        history_html = get_dvmn_history_html(username)
+    except requests.exceptions.HTTPError:
+        exit('Ошибка получения истории действий. Проверьте имя пользователя и доступ в интернет.')
+
+    reviews = collect_actions_history(history_html)
+
     first_reviews_time = calc_first_reviews_time(split_reviews_by_lessons(reviews))
 
-    review_durations = [review['review_time'] for review in first_reviews_time]
+    review_durations = [review.hours for review in first_reviews_time]
 
     if not first_reviews_time:
         exit('Первых проверок не найдено, в истории пусто')
@@ -154,9 +166,8 @@ def main():
 
     if not skip_csv:
         with open(f'{username}_stats.csv', 'w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=['lesson', 'review_time'])
-            writer.writeheader()
-            writer.writerows(first_reviews_time)
+            writer = DataclassWriter(csvfile, first_reviews_time, ReviewTime)
+            writer.write()
 
 
 if __name__ == '__main__':
