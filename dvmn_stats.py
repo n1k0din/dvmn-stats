@@ -60,7 +60,7 @@ def remove_spaces_series(src_string: str) -> str:
     """
     Возвращает строку без последовательных пробельных символов
     """
-    return re.sub(r'\s+', ' ', src_string)
+    return re.sub(r'\s+', ' ', src_string).strip()
 
 
 def dvmn_time_str_to_datetime(dvmn_time_str: str):
