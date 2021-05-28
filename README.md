@@ -8,10 +8,9 @@
 ## Пример
 
 ### Запуск
-Получает статистику пользователя nik726
+Получает статистику пользователя `nik726`
   ```sh
-  python nik726
-
+  poetry run python nik726
   ```
 
 ### Результат
@@ -43,32 +42,23 @@ lesson|review_time
 
 ## Установка и запуск
 
-1. Скачайте код и перейдите в папку проекта
-  ```bash
+0. Вам понадобится менеджер зависимостей `poetry`:
+  ```sh
+  pip install poetry
+  ```
+1. Скачайте код и перейдите в папку проекта:
+  ```sh
   git clone https://github.com/n1k0din/dvmn-stats.git
   ```  
-  ```bash
+  ```sh
   cd dvmn-stats
   ```
-2. Скопируйте файл с шага 0. в `dvmn-stats`
+2. Установите зависимости:
+  ```sh
+  poetry install
+  ```
 
-3. Установите вирт. окружение
-```bash
-python -m venv venv
-```
-4. Активируйте
-```bash
-venv\Scripts\activate.bat
-```
- или
- ```
- source venv/bin/activate
- ```
-5. Установите необходимые пакеты
-```bash
-pip install -r requirements.txt
-```
-6. Запустите
-```bash
-python dvmn_history_parser.py USERNAME [--skip_csv]
-```
+3. Запустите:
+  ```sh
+  poetry run python dvmn_stats.py USERNAME [--skip_csv]
+  ```
