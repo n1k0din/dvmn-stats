@@ -173,7 +173,8 @@ def build_stats_for_modules(reviews_durations: t.List[ReviewDuration])\
     return modules_stats
 
 
-def get_first_reviews_durations(history_html: str, skip_unreviewed: bool) -> t.List[ReviewDuration]:
+def get_first_reviews_durations(history_html: str, skip_unreviewed: bool)\
+        -> t.List[ReviewDuration]:
 
     logs = collect_actions_history(history_html)
     lessons_logs_stack = build_lessons_logs_stack(logs)
