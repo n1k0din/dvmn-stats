@@ -173,6 +173,14 @@ def build_stats_for_modules(reviews_durations: list[ReviewDuration])\
     return modules_stats
 
 
+def get_first_reviews_durations(history_html: str, skip_unreviewed: bool) -> list[ReviewDuration]:
+
+    logs = collect_actions_history(history_html)
+    lessons_logs_stack = build_lessons_logs_stack(logs)
+    lesson_logs = convert_lessons_logs_to_dataclass_list(lessons_logs_stack)
+    return calc_first_reviews_duration(lesson_logs, skip_unreviewed)
+
+
 def main(username: str, skip_csv: bool = False, skip_unreviewed: bool = False) -> None:
     """
     Разбирает историю, вычисляет статистику, выводит результат.
@@ -183,10 +191,7 @@ def main(username: str, skip_csv: bool = False, skip_unreviewed: bool = False) -
     except requests.exceptions.HTTPError:
         exit('Ошибка получения истории действий. Проверьте имя пользователя и доступ в интернет.')
 
-    logs = collect_actions_history(history_html)
-    lessons_logs_stack = build_lessons_logs_stack(logs)
-    lesson_logs = convert_lessons_logs_to_dataclass_list(lessons_logs_stack)
-    first_reviews_duration = calc_first_reviews_duration(lesson_logs, skip_unreviewed)
+    first_reviews_duration = get_first_reviews_durations(history_html, skip_unreviewed)
 
     review_durations = [review.hours for review in first_reviews_duration]
 
