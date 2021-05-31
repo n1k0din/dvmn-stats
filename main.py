@@ -13,12 +13,12 @@ def read_user_stats(username: str, skip_unreviewed: bool = False) -> dict:
     try:
         history_html = dvmn_stats.get_dvmn_history_html(username)
     except requests.exceptions.HTTPError:
-        raise HTTPException('User not found!')
+        raise HTTPException(404, detail='User not found!')
 
     first_reviews_duration = dvmn_stats.get_first_reviews_durations(history_html, skip_unreviewed)
 
     if not first_reviews_duration:
-        raise HTTPException('History is empty.')
+        raise HTTPException(404, detail='History is empty.')
 
     shortest_review = min(first_reviews_duration, key=attrgetter('hours'))
     longest_review = max(first_reviews_duration, key=attrgetter('hours'))
