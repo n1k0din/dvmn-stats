@@ -75,3 +75,8 @@ lesson|review_time
   ```sh
   poetry run python dvmn_stats.py USERNAME [--skip_csv] [--skip_unreviewed]
   ```
+  или
+
+  ```sh
+  poetry run uvicorn main:app --reload
+  ```
