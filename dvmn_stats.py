@@ -101,7 +101,7 @@ def convert_lessons_logs_to_dataclass_list(reviews_for_lesson: dict[ModuleLesson
     return lessons_logs
 
 
-def calc_first_reviews_duration(lessons_logs: list[LessonLog]) -> list[ReviewDuration]:
+def calc_first_reviews_duration(lessons_logs: list[LessonLog], skip_unreviewed: bool) -> list[ReviewDuration]:
     """
     Перебирает список сдал/получил и создает список длительности первых проверок.
     """
@@ -111,7 +111,9 @@ def calc_first_reviews_duration(lessons_logs: list[LessonLog]) -> list[ReviewDur
         try:
             first_recieved = lesson_logs.actions.pop()
         except IndexError:
-            continue
+            if skip_unreviewed:
+                continue
+            first_recieved = datetime.now()
 
         review_hours = timedelta_to_hours(first_recieved - first_sent)
 
@@ -170,7 +172,7 @@ def build_stats_for_modules(reviews_durations: list[ReviewDuration])\
     return modules_stats
 
 
-def main(username: str, skip_csv: bool = False) -> None:
+def main(username: str, skip_csv: bool = False, skip_unreviewed: bool = False) -> None:
     """
     Разбирает историю, вычисляет статистику, выводит результат.
     """
@@ -183,7 +185,7 @@ def main(username: str, skip_csv: bool = False) -> None:
     logs = collect_actions_history(history_html)
     lessons_logs_stack = build_lessons_logs_stack(logs)
     lesson_logs = convert_lessons_logs_to_dataclass_list(lessons_logs_stack)
-    first_reviews_duration = calc_first_reviews_duration(lesson_logs)
+    first_reviews_duration = calc_first_reviews_duration(lesson_logs, skip_unreviewed)
 
     review_durations = [review.hours for review in first_reviews_duration]
 
