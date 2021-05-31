@@ -79,20 +79,20 @@ def dvmn_time_str_to_datetime(dvmn_time_str: str) -> datetime:
     return datetime(year, month, day, hours, minutes)
 
 
-def build_lessons_logs_stack(reviews: list[tuple[str, str, str, datetime]])\
-        -> dict[ModuleLesson, t.Deque]:
+def build_lessons_logs_stack(reviews: t.List[t.Tuple[str, str, str, datetime]])\
+        -> t.Dict[ModuleLesson, t.Deque]:
     """
     Преобразует входящий список записей в словарь с очередью из отправил решение - получил ревью.
     """
-    logs_for_lesson: dict[ModuleLesson, t.Deque] = defaultdict(deque)
+    logs_for_lesson: t.Dict[ModuleLesson, t.Deque] = defaultdict(deque)
     for _action, lesson, module, timestamp in reversed(reviews):
         module_lesson = ModuleLesson(module, lesson)
         logs_for_lesson[module_lesson].appendleft(timestamp)
     return logs_for_lesson
 
 
-def convert_lessons_logs_to_dataclass_list(reviews_for_lesson: dict[ModuleLesson, t.Deque])\
-        -> list[LessonLog]:
+def convert_lessons_logs_to_dataclass_list(reviews_for_lesson: t.Dict[ModuleLesson, t.Deque])\
+        -> t.List[LessonLog]:
 
     lessons_logs = []
     for module_lesson, actions in reviews_for_lesson.items():
@@ -101,8 +101,8 @@ def convert_lessons_logs_to_dataclass_list(reviews_for_lesson: dict[ModuleLesson
     return lessons_logs
 
 
-def calc_first_reviews_duration(lessons_logs: list[LessonLog], skip_unreviewed: bool)\
-        -> list[ReviewDuration]:
+def calc_first_reviews_duration(lessons_logs: t.List[LessonLog], skip_unreviewed: bool)\
+        -> t.List[ReviewDuration]:
     """
     Перебирает список сдал/получил и создает список длительности первых проверок.
     """
@@ -138,7 +138,7 @@ def get_dvmn_history_html(username: str) -> str:
     return response.text
 
 
-def collect_actions_history(history_html: str) -> list[tuple[str, str, str, datetime]]:
+def collect_actions_history(history_html: str) -> t.List[t.Tuple[str, str, str, datetime]]:
     logs = []
     soup = BeautifulSoup(history_html, 'lxml')
     rows = soup.find_all('div', class_='logtable-row mb-1 p-2')
@@ -162,8 +162,8 @@ def collect_actions_history(history_html: str) -> list[tuple[str, str, str, date
     return logs
 
 
-def build_stats_for_modules(reviews_durations: list[ReviewDuration])\
-        -> list[ModuleStats]:
+def build_stats_for_modules(reviews_durations: t.List[ReviewDuration])\
+        -> t.List[ModuleStats]:
     modules_stats = []
     data = sorted(reviews_durations, key=attrgetter('module_lesson.module'))
     for module_name, module_reviews in groupby(data, key=attrgetter('module_lesson.module')):
@@ -171,6 +171,14 @@ def build_stats_for_modules(reviews_durations: list[ReviewDuration])\
         modules_stats.append(ModuleStats(module_name, mean(durations), median(durations)))
 
     return modules_stats
+
+
+def get_first_reviews_durations(history_html: str, skip_unreviewed: bool) -> t.List[ReviewDuration]:
+
+    logs = collect_actions_history(history_html)
+    lessons_logs_stack = build_lessons_logs_stack(logs)
+    lesson_logs = convert_lessons_logs_to_dataclass_list(lessons_logs_stack)
+    return calc_first_reviews_duration(lesson_logs, skip_unreviewed)
 
 
 def main(username: str, skip_csv: bool = False, skip_unreviewed: bool = False) -> None:
@@ -183,10 +191,7 @@ def main(username: str, skip_csv: bool = False, skip_unreviewed: bool = False) -
     except requests.exceptions.HTTPError:
         exit('Ошибка получения истории действий. Проверьте имя пользователя и доступ в интернет.')
 
-    logs = collect_actions_history(history_html)
-    lessons_logs_stack = build_lessons_logs_stack(logs)
-    lesson_logs = convert_lessons_logs_to_dataclass_list(lessons_logs_stack)
-    first_reviews_duration = calc_first_reviews_duration(lesson_logs, skip_unreviewed)
+    first_reviews_duration = get_first_reviews_durations(history_html, skip_unreviewed)
 
     review_durations = [review.hours for review in first_reviews_duration]
 
