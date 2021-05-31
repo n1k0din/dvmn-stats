@@ -3,3 +3,5 @@
 *.csv
 *.json
 /venv
+/__pycache__
+poetry.lock
