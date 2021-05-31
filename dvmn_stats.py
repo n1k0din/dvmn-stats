@@ -101,7 +101,8 @@ def convert_lessons_logs_to_dataclass_list(reviews_for_lesson: dict[ModuleLesson
     return lessons_logs
 
 
-def calc_first_reviews_duration(lessons_logs: list[LessonLog], skip_unreviewed: bool) -> list[ReviewDuration]:
+def calc_first_reviews_duration(lessons_logs: list[LessonLog], skip_unreviewed: bool)\
+        -> list[ReviewDuration]:
     """
     Перебирает список сдал/получил и создает список длительности первых проверок.
     """

@@ -3,7 +3,8 @@
 
 ## Аргументы
 - `username` имя пользователя, обязательный.
-- `--skip_csv` пропускать сохранение в csv-файл.
+- `--skip-csv` пропускать сохранение в csv-файл.
+- `--skip_unreviewed` пропускать непроверенные уроки, а не считать их датой проверки __сейчас__.
 
 ## Пример
 
@@ -60,5 +61,5 @@ lesson|review_time
 
 3. Запустите:
   ```sh
-  poetry run python dvmn_stats.py USERNAME [--skip_csv]
+  poetry run python dvmn_stats.py USERNAME [--skip_csv] [--skip_unreviewed]
   ```
