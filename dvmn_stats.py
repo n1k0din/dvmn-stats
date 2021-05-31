@@ -2,7 +2,7 @@ import re
 import typing as t
 from collections import defaultdict, deque, namedtuple
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import groupby
 from operator import attrgetter
 from statistics import mean, median
@@ -36,7 +36,7 @@ class ReviewDuration:
     module_lesson: ModuleLesson
     hours: float
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.module_lesson.module}. {self.module_lesson.lesson} – {self.hours:.2f} ч.'
 
 
@@ -52,7 +52,7 @@ class ModuleStats:
     mean: float
     median: float
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.module_name}. Среднее {self.mean:.2f}, медиана {self.median:.2f}'
 
 
@@ -63,7 +63,7 @@ def remove_spaces_series(src_string: str) -> str:
     return re.sub(r'\s+', ' ', src_string).strip()
 
 
-def dvmn_time_str_to_datetime(dvmn_time_str: str):
+def dvmn_time_str_to_datetime(dvmn_time_str: str) -> datetime:
     """
     Преобразует строку с датой и временем определенного формата в datetime
     """
@@ -120,14 +120,14 @@ def calc_first_reviews_duration(lessons_logs: list[LessonLog]) -> list[ReviewDur
     return first_reviews_duration
 
 
-def timedelta_to_hours(timedelta) -> float:
+def timedelta_to_hours(delta: timedelta) -> float:
     """
     Вычисляет количество часов в обычном datetime.timdelta
     """
-    return timedelta.days * 24 + timedelta.seconds / 60 / 60
+    return delta.days * 24 + delta.seconds / 60 / 60
 
 
-def get_dvmn_history_html(username: str):
+def get_dvmn_history_html(username: str) -> str:
     url = f'https://dvmn.org/user/{username}/history/'
     response = requests.get(url)
     response.raise_for_status()
@@ -170,7 +170,7 @@ def build_stats_for_modules(reviews_durations: list[ReviewDuration])\
     return modules_stats
 
 
-def main(username: str, skip_csv: bool = False):
+def main(username: str, skip_csv: bool = False) -> None:
     """
     Разбирает историю, вычисляет статистику, выводит результат.
     """
