@@ -38,7 +38,7 @@ def get_reviews(username: str, skip_unreviewed: bool) -> t.List[dvmn_stats.Revie
     return first_reviews_duration
 
 
-@app.get("/{username}")
+@app.get("/profile/{username}")
 def read_user_stats(username: str, skip_unreviewed: bool = False) -> dict:
 
     reviews = get_reviews(username, skip_unreviewed)
